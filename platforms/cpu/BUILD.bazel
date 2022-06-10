@@ -1,0 +1,120 @@
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+# TODO(b/136237408): Remove this generic CPU name and replace with a specific one.
+alias(
+    name = "aarch64",
+    actual = "@platforms//os:aarch64",
+)
+
+# TODO(b/136237408): Remove this generic CPU name and replace with a specific one.
+alias(
+    name = "arm",
+    actual = "@platforms//os:arm",
+)
+
+# Cortex-M0, Cortex-M0+, Cortex-M1
+alias(
+    name = "armv6-m",  # Commonly known as thumbv6
+    actual = "@platforms//os:armv6-m",
+)
+
+# Cortex-M3
+alias(
+    name = "armv7-m",
+    actual = "@platforms//os:armv7-m",
+)
+
+# Cortex-M4, Cortex-M7
+alias(
+    name = "armv7e-m",
+    actual = "@platforms//os:armv7e-m",
+)
+
+# Cortex-M4, Cortex-M7 with fpu
+alias(
+    name = "armv7e-mf",  # armv7e-m with fpu
+    actual = "@platforms//os:armv7e-mf",
+)
+
+# Cortex-M23, Cortex-M33, Cortex-M35P
+alias(
+    name = "armv8-m",
+    actual = "@platforms//os:armv8-m",
+)
+
+alias(
+    name = "arm64_32",
+    actual = "@platforms//os:arm64_32",
+)
+
+alias(
+    name = "arm64",
+    actual = "@platforms//os:arm64",
+)
+
+alias(
+    name = "arm64e",
+    actual = "@platforms//os:arm64e",
+)
+
+alias(
+    name = "armv7",
+    actual = "@platforms//os:armv7",
+)
+
+alias(
+    name = "armv7k",
+    actual = "@platforms//os:armv7k",
+)
+
+alias(
+    name = "i386",
+    actual = "@platforms//os:i386",
+)
+
+alias(
+    name = "ppc",
+    actual = "@platforms//os:ppc",
+)
+
+alias(
+    name = "s390x",
+    actual = "@platforms//os:s390x",
+)
+
+alias(
+    name = "x86_32",
+    actual = "@platforms//os:x86_32",
+)
+
+alias(
+    name = "x86_64",
+    actual = "@platforms//os:x86_64",
+)
+
+alias(
+    name = "wasm32",
+    actual = "@platforms//os:wasm32",
+)
+
+alias(
+    name = "wasm64",
+    actual = "@platforms//os:wasm64",
+)
+
+alias(
+    name = "mips64",
+    actual = "@platforms//os:mips64",
+)
+
+alias(
+    name = "riscv32",
+    actual = "@platforms//os:riscv32",
+)
+
+alias(
+    name = "riscv64",
+    actual = "@platforms//os:riscv64",
+)

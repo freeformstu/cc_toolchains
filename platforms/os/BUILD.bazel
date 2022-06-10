@@ -1,0 +1,97 @@
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "freebsd",
+    actual = "@platforms//os:freebsd",
+)
+
+alias(
+    name = "netbsd",
+    actual = "@platforms//os:netbsd",
+)
+
+alias(
+    name = "openbsd",
+    actual = "@platforms//os:openbsd",
+)
+
+alias(
+    name = "haiku",
+    actual = "@platforms//os:haiku",
+)
+
+alias(
+    name = "android",
+    actual = "@platforms//os:android",
+)
+
+alias(
+    name = "linux",
+    actual = "@platforms//os:linux",
+)
+
+alias(
+    name = "windows",
+    actual = "@platforms//os:windows",
+)
+
+# For platforms with no OS, like microcontrollers.
+alias(
+    name = "none",
+    actual = "@platforms//os:none",
+)
+
+### Apple OS Values
+
+alias(
+    name = "ios",
+    actual = "@platforms//os:ios",
+)
+
+# TODO(b/138656886): Rename this to macos instead of osx.
+alias(
+    name = "osx",
+    actual = "@platforms//os:osx",
+)
+
+alias(
+    name = "macos",
+    actual = ":osx",
+)
+
+alias(
+    name = "tvos",
+    actual = "@platforms//os:tvos",
+)
+
+alias(
+    name = "watchos",
+    actual = "@platforms//os:watchos",
+)
+
+alias(
+    name = "qnx",
+    actual = "@platforms//os:qnx",
+)
+
+# NixOS uses the Linux kernel, but is not ABI-compatible with any
+# other Linux distribution. This is because the dynamic linker is in
+# a non-standard (and undefined) location on the filesystem.
+alias(
+    name = "nixos",
+    actual = "@platforms//os:nixos",
+)
+
+# WASI (WebAssembly System Interface)
+# https://github.com/bytecodealliance/wasmtime/blob/main/docs/WASI-overview.md
+alias(
+    name = "wasi",
+    actual = "@platforms//os:wasi",
+)
+
+alias(
+    name = "fuchsia",
+    actual = "@platforms//os:fuchsia",
+)

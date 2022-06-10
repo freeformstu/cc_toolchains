@@ -1,0 +1,7 @@
+# git ignore patterns
+
+# Bazel
+/bazel-*
+user.bazelrc
+
+.DS_Store
