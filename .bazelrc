@@ -1,7 +1,10 @@
 # Bazel configuration flags
 
 # Enable proper toolchain resolution
-common --incompatible_enable_cc_toolchain_resolution
+build --incompatible_enable_cc_toolchain_resolution
+
+# Enable rust-analyzer
+common --repo_env=RULES_RUST_TOOLCHAIN_INCLUDE_RUSTC_SRCS=true
 
 # This import should always be last to allow users to override
 # settings for local development.

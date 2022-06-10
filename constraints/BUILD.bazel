@@ -2,7 +2,7 @@ load("//constraints:constraints.bzl", "triple_to_constraint_set")
 load("//platforms:platforms.bzl", "SUPPORTED_TRIPLES")
 
 [
-    platform(
+    config_setting(
         name = triple,
         constraint_values = triple_to_constraint_set(triple),
         visibility = ["//visibility:public"],

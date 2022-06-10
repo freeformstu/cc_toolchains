@@ -1,7 +1,14 @@
-# git ignore patterns
+# Git ignore patterns
+
+# Editors
+/.vscode
 
 # Bazel
 /bazel-*
 user.bazelrc
 
+# Rust
+rust-project.json
+
+# System
 .DS_Store

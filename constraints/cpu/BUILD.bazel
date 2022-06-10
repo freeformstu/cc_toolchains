@@ -1,0 +1,145 @@
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+# TODO(b/136237408): Remove this generic CPU name and replace with a specific one.
+alias(
+    name = "aarch64",
+    actual = "@platforms//cpu:aarch64",
+)
+
+# TODO(b/136237408): Remove this generic CPU name and replace with a specific one.
+alias(
+    name = "arm",
+    actual = "@platforms//cpu:arm",
+)
+
+# Cortex-M0, Cortex-M0+, Cortex-M1
+alias(
+    name = "armv6-m",  # Commonly known as thumbv6
+    actual = "@platforms//cpu:armv6-m",
+)
+
+# Cortex-M3
+alias(
+    name = "armv7-m",
+    actual = "@platforms//cpu:armv7-m",
+)
+
+# Cortex-M4, Cortex-M7
+alias(
+    name = "armv7e-m",
+    actual = "@platforms//cpu:armv7e-m",
+)
+
+# Cortex-M4, Cortex-M7 with fpu
+alias(
+    name = "armv7e-mf",  # armv7e-m with fpu
+    actual = "@platforms//cpu:armv7e-mf",
+)
+
+# Cortex-M23, Cortex-M33, Cortex-M35P
+alias(
+    name = "armv8-m",
+    actual = "@platforms//cpu:armv8-m",
+)
+
+alias(
+    name = "arm64_32",
+    actual = "@platforms//cpu:arm64_32",
+)
+
+alias(
+    name = "arm64",
+    actual = "@platforms//cpu:arm64",
+)
+
+alias(
+    name = "arm64e",
+    actual = "@platforms//cpu:arm64e",
+)
+
+alias(
+    name = "armv7",
+    actual = "@platforms//cpu:armv7",
+)
+
+constraint_value(
+    name = "armv7a",
+    constraint_setting = "@platforms//cpu",
+)
+
+alias(
+    name = "armv7k",
+    actual = "@platforms//cpu:armv7k",
+)
+
+alias(
+    name = "i386",
+    actual = "@platforms//cpu:i386",
+)
+
+alias(
+    name = "ppc",
+    actual = "@platforms//cpu:ppc",
+)
+
+alias(
+    name = "ppc64",
+    actual = ":ppc",
+)
+
+alias(
+    name = "powerpc64",
+    actual = ":ppc64",
+)
+
+constraint_value(
+    name = "ppc64le",
+    constraint_setting = "@platforms//cpu",
+)
+
+alias(
+    name = "powerpc64le",
+    actual = ":ppc64",
+)
+
+alias(
+    name = "s390x",
+    actual = "@platforms//cpu:s390x",
+)
+
+alias(
+    name = "x86_32",
+    actual = "@platforms//cpu:x86_32",
+)
+
+alias(
+    name = "x86_64",
+    actual = "@platforms//cpu:x86_64",
+)
+
+alias(
+    name = "wasm32",
+    actual = "@platforms//cpu:wasm32",
+)
+
+alias(
+    name = "wasm64",
+    actual = "@platforms//cpu:wasm64",
+)
+
+alias(
+    name = "mips64",
+    actual = "@platforms//cpu:mips64",
+)
+
+alias(
+    name = "riscv32",
+    actual = "@platforms//cpu:riscv32",
+)
+
+alias(
+    name = "riscv64",
+    actual = "@platforms//cpu:riscv64",
+)

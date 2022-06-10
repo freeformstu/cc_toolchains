@@ -1,0 +1,37 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+load("//platforms:platforms.bzl", "HOST_TOOL_TRIPLES")
+load("//tests/rules_lang:cross.bzl", "cross")
+
+rust_library(
+    name = "fibonacci",
+    srcs = ["fibonacci.rs"],
+    edition = "2018",
+)
+
+rust_test(
+    name = "fibonacci_unit_test",
+    crate = ":fibonacci",
+)
+
+rust_binary(
+    name = "fibonacci_bin",
+    srcs = ["fibonacci_main.rs"],
+    edition = "2018",
+    deps = [":fibonacci"],
+)
+
+rust_test(
+    name = "fibonacci_integration_test",
+    srcs = ["fibonacci_test.rs"],
+    edition = "2018",
+    deps = [":fibonacci"],
+)
+
+[
+    cross(
+        name = "fibonacci_bin.{}".format(triple),
+        platform = "//platforms:{}".format(triple),
+        target = ":fibonacci_bin",
+    )
+    for triple in HOST_TOOL_TRIPLES
+]

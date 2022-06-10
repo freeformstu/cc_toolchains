@@ -1,0 +1,30 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+load("//platforms:platforms.bzl", "HOST_TOOL_TRIPLES")
+load("//tests/rules_lang:cross.bzl", "cross")
+
+cc_library(
+    name = "fibonacci",
+    srcs = ["fibonacci.cc"],
+    hdrs = ["fibonacci.h"],
+)
+
+cc_binary(
+    name = "fibonacci_bin",
+    srcs = ["fibonacci_main.cc"],
+    deps = [":fibonacci"],
+)
+
+cc_test(
+    name = "fibonacci_integration_test",
+    srcs = ["fibonacci_test.cc"],
+    deps = [":fibonacci"],
+)
+
+[
+    cross(
+        name = "fibonacci_bin.{}".format(triple),
+        platform = "//platforms:{}".format(triple),
+        target = ":fibonacci_bin",
+    )
+    for triple in HOST_TOOL_TRIPLES
+]

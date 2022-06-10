@@ -18,11 +18,6 @@ alias(
 )
 
 alias(
-    name = "haiku",
-    actual = "@platforms//os:haiku",
-)
-
-alias(
     name = "android",
     actual = "@platforms//os:android",
 )
