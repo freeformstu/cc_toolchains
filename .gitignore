@@ -6,9 +6,15 @@
 # Bazel
 /bazel-*
 user.bazelrc
+host_platforms.bazelrc
 
 # Rust
 rust-project.json
 
 # System
 .DS_Store
+
+# python
+__pycache__
+.venv*
+

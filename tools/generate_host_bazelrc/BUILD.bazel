@@ -1,0 +1,16 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+# A tool for generating a `.bazelrc` that has the right
+# host toolchain for the current host. This means a ubuntu 20
+# host should be using `--host_platform=@cc_toolchains//platforms:ubuntu_18`
+native_binary(
+    name = "generate_host_bazelrc",
+    src = select({
+        "//constraints/os:windows": "generate_host_bazelrc.bat",
+        "//conditions:default": "generate_host_bazelrc.sh",
+    }),
+    out = select({
+        "//constraints/os:windows": "generate_host_bazelrc.bat",
+        "//conditions:default": "generate_host_bazelrc.sh",
+    }),
+)

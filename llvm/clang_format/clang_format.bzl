@@ -24,8 +24,9 @@ toolchain(
 )
 ```
 
-With a toolchain setup, formatting your C/C++ targets source code requires no additional setup outside of 
-loading `cc_toolchains` in your workspace. Simply run `bazel run @cc_toolchains//llvm/clang_format` to format source code.
+With a toolchain setup, formatting your C/C++ targets source code requires no additional setup outside of
+loading `cc_toolchains` in your workspace. Simply run `bazel run @cc_toolchains//llvm/clang_format` to
+format source code.
 
 In addition to this formatter, a check can be added to your build phase using the [clang_format_aspect](#clang_format_aspect)
 aspect. Simply add the following to a `.bazelrc` file to enable this check.
@@ -203,11 +204,9 @@ def _find_formattable_srcs(target, aspect_ctx):
     if target.label.workspace_root.startswith("external"):
         return []
 
-    # Targets tagged to indicate "don't format" will not be formatted
-    if aspect_ctx:
-        for tag in ["noformat", "no-format", "no-clang-format"]:
-            if tag in aspect_ctx.rule.attr.tags:
-                return []
+    # Targets annotated with `noformat` will not be formatted
+    if aspect_ctx and "noformat" in aspect_ctx.rule.attr.tags:
+        return []
 
     # Collect all source files
     srcs = []
@@ -298,14 +297,14 @@ This aspect is used to gather information about a target for use with [clang-for
 Output Groups:
 - `clang_format_checks`: Executes `clang-format` checks on the specified target.
 
-The build setting `@rules_cc//llvm/clang_format:clang_format_config` is used to control the `clang-format` 
+The build setting `@cc_toolchains//llvm/clang_format:clang_format_config` is used to control the `clang-format`
 [configuration settings][cs] used at runtime.
 
 This aspect is executed on any target which provides the [CcInfo][ci] provider. However users may tag a target with
-`noformat`, `no-format`, or `no-clang-format` to have it skipped. Additionally, there are two flags which can be used
-to futher control how source files are detected by this aspect:
-- `@rules_cc//llvm/clang_format:clang_format_extensions`: An allow list of source file extensions to be formatted
-- `@rules_cc//llvm/clang_format:clang_format_source_attrs`: Attributes on rules which provide [CcInfo][ci].
+`noformat` to have it skipped. Additionally, there are two flags which can be used to futher control how source files
+are detected by this aspect:
+- `@cc_toolchains//llvm/clang_format:clang_format_extensions`: An allow list of source file extensions to be formatted
+- `@cc_toolchains//llvm/clang_format:clang_format_source_attrs`: Attributes on rules which provide [CcInfo][ci].
 
 Generated source files are also ignored by this aspect.
 

@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//llvm/clang_format:clang_format.bzl", "clang_format", "clang_format_toolchain", "current_clang_format_toolchain")
 load("//llvm/clang_format/private:clang_format_utils.bzl", "string_list_flag")
 
@@ -9,6 +10,18 @@ exports_files([
 ])
 
 toolchain_type(name = "toolchain_type")
+
+clang_format_toolchain(
+    name = "clang_format_toolchain_impl",
+    # TODO: Use clang-format from the toolchain
+    clang_format_path = "clang-format",
+)
+
+toolchain(
+    name = "clang_format_toolchain",
+    toolchain = "clang_format_toolchain_impl",
+    toolchain_type = "//llvm/clang_format:toolchain_type",
+)
 
 current_clang_format_toolchain(
     name = "current_clang_format_toolchain",
@@ -79,13 +92,13 @@ filegroup(
     ],
 )
 
-clang_format_toolchain(
-    name = "clang_format_toolchain_impl",
-    clang_format_path = "clang-format",
-)
-
-toolchain(
-    name = "clang_format_toolchain",
-    toolchain = "clang_format_toolchain_impl",
-    toolchain_type = "//llvm/clang_format:toolchain_type",
+bzl_library(
+    name = "bzl_lib",
+    srcs = glob(["**/*.bzl"]) + [
+        "@bazel_tools//tools:bzl_srcs",
+        "@rules_cc//cc:bzl_srcs",
+    ],
+    deps = [
+        "//llvm/clang_format/private:bzl_lib",
+    ],
 )

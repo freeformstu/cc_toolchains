@@ -6,6 +6,9 @@ build --incompatible_enable_cc_toolchain_resolution
 # Enable rust-analyzer
 common --repo_env=RULES_RUST_TOOLCHAIN_INCLUDE_RUSTC_SRCS=true
 
+# Load a more detailed definition of the host platform
+try-import %workspace%/host_platforms.bazelrc
+
 # This import should always be last to allow users to override
 # settings for local development.
 try-import %workspace%/user.bazelrc

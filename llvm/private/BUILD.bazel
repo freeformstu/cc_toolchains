@@ -1,4 +1,0 @@
-load(":llvm_versions.bzl", "LLVM_VERSIONS")
-load(":repository_utils.bzl", "debug")
-
-debug()

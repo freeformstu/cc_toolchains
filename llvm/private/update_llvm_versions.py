@@ -8,11 +8,13 @@ import queue
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
+import unittest
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Tuple
 from urllib import parse, request
 
 # Threadding information
@@ -51,7 +53,6 @@ LLVM_VERSIONS = sorted(
         # Semver("7.0.0"),
         # Semver("8.0.0"),
         # Semver("9.0.0"),
-
         Semver("7.1.0"),
         Semver("8.0.1"),
         Semver("9.0.1"),
@@ -114,6 +115,128 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def triple_abi_assumption(triple: str) -> str:
+    """_summary_
+
+    Args:
+        triple (str): _description_
+
+    Returns:
+        str: _description_
+    """    
+
+    # I don't believe any of the release artifacts use a musl abi
+    # for linux.
+    if "linux" in triple:
+        return "{}-gnu".format(triple)
+
+    return triple
+
+
+def distro_split(distribution: str) -> str:
+    """_summary_
+
+    Args:
+        distribution (str): _description_
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        str: _description_
+    """    
+    for i in range(1, len(distribution)):
+        if distribution[-i].isalpha():
+            dist = distribution[: -(i - 1)].strip("-")
+            dist_version = distribution[len(dist) :].strip("-")
+            return (dist, dist_version)
+
+    raise ValueError("{} is not a valid distribution".format(distribution))
+
+
+def triple_from_artifact(artifact: str) -> Tuple[str, str]:
+    """Convert the llvm artifact name into a platform triple.
+
+    Args:
+        artifact (str): The name of an artifact without it's extension. E.g. `sparcv9-sun-solaris2.11`.
+
+    Returns:
+        A platform triple.
+    """
+
+    # https://discourse.llvm.org/t/release-artifact-naming-conventions/63872/4
+    split = artifact.split("-", 2)
+
+    # All artifacts consistently have CPU/Arch first.
+    arch = split.pop(0)
+
+    # The following artifacts commonly place vendor next
+    vendor = ""
+    if split[0] in ["apple", "unknown", "pc", "ibm", "sun"]:
+        vendor = split.pop(0)
+
+    system = ""
+    if split[0].startswith(("freebsd", "linux", "darwin", "aix", "solaris")):
+        system = split.pop(0)
+
+    # In someo cases, we need to be aware of both arch and system to identify
+    # the right vendor string.
+    if not vendor:
+        if system == "linux":
+            vendor = "unknown"
+
+    abi = ""
+    if split and split[0].startswith(("gnu", "musl")):
+        abi = split.pop(0)
+        # If there are no more sections from the split, we ensure abi does not have
+        # additional parts to it since the original split has a capped `maxsplit`
+        if not split:
+            split = abi.split("-", maxsplit=1)
+            
+            # If there were no additional sections to `abi` then this should result
+            # in the exact same value.
+            abi = split.pop(0)
+
+    dist = None
+    dist_version = None
+
+    # Check that the system is sanitized and does not contian version info
+    if system[-1].isnumeric():
+        dist, dist_version = distro_split(system)
+        system = dist
+
+    # If the `system` tag didn't appear to have info about the distribution,
+    # check the remaining artifact key
+    elif len(split) == 1:
+        dist, dist_version = distro_split(split[0])
+
+    triple = (
+        "{arch}-{vendor}-{system}-{abi}".format(
+            arch=arch,
+            vendor=vendor,
+            system=system,
+            abi=abi,
+        )
+        .rstrip("-")
+        .replace("--", "-")
+    )
+
+    # Update any potential ABI information.
+    if not abi:
+        triple = triple_abi_assumption(triple)
+
+    distribution = (
+        "{dist}-{version}".format(
+            dist=dist,
+            version=dist_version,
+        )
+        if dist
+        else "*"
+    )
+
+    return (triple, distribution)
+
+
 def query_artifacts(version: Semver) -> VersionArtifacts:
     """Query for the download URLs of all llvm artifacts for a particular version
 
@@ -135,9 +258,9 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
     content = None
     with request.urlopen(url=url.geturl()) as data:
         content = data.read()
-    
-    # Protect against rate limiting
-    time.sleep(0.5)
+
+    # Protect against rate limiting from the Github API
+    time.sleep(1)
 
     if not content:
         raise RuntimeError("Failed to download: {}".format(url))
@@ -147,14 +270,39 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
     prefix_len = len("clang+llvm-{}-".format(version))
     suffix_len = len(".tar.xz")
 
-    return {
-        asset["name"][prefix_len:-suffix_len]: {
-            "url": parse.unquote(asset["browser_download_url"]),
-            "sha256": None,
-        }
+    # Some artifacts will have matching triples but will be built for different
+    # distributions (rhel vs ubuntu). We collect artifact information as a list
+    # here and combine them into a dict later.
+    artifacts: List[Tuple[str, str], Dict[str, str]] = [
+        (
+            triple_from_artifact(asset["name"][prefix_len:-suffix_len]),
+            {
+                "url": parse.unquote(asset["browser_download_url"]),
+                "sha256": None,
+            },
+        )
         for asset in data["assets"]
         if re.match(ARTIFACT_REGEX, asset["name"])
-    }
+        and not asset["name"][prefix_len:].startswith("rc")
+    ]
+
+    # Combine all artifacts to match the following format
+    # "triple": {
+    #     "distribution": {
+    #         "url": "..."
+    #         # ...
+    #     }
+    # }
+    combiend_artifacts = {}
+    for data in artifacts:
+        triple_data, artifact_data = data
+        triple, dist = triple_data
+
+        art_entry = combiend_artifacts.get(triple, {})
+        art_entry.update({dist: artifact_data})
+        combiend_artifacts.update({triple: art_entry})
+
+    return combiend_artifacts
 
 
 def run_buildifier(file: Path) -> None:
@@ -239,9 +387,10 @@ def main() -> None:
         logging.debug("temp directory: {}".format(tmp_dir))
         tmp_path = Path(tmp_dir)
 
-        for assets in version_assets.values():
-            for data in assets.values():
-                QUEUE.put((tmp_path, parse.urlparse(data["url"])))
+        for triple_assets in version_assets.values():
+            for triple in triple_assets:
+                for data in triple_assets[triple].values():
+                    QUEUE.put((tmp_path, parse.urlparse(data["url"])))
 
         threads = []
         for i in range(args.numprocesses):
@@ -261,17 +410,18 @@ def main() -> None:
             raise RuntimeError("Queue still has tasks in it")
 
         for version in version_assets:
-            for asset in version_assets[version]:
-                sha256_file = tmp_path / sha256_file_path(
-                    Path(
-                        parse.urlparse(
-                            version_assets[version][asset]["url"]
-                        ).path.lstrip("/")
+            for triple in version_assets[version]:
+                for dist in version_assets[version][triple]:
+                    sha256_file = tmp_path / sha256_file_path(
+                        Path(
+                            parse.urlparse(
+                                version_assets[version][triple][dist]["url"]
+                            ).path.lstrip("/")
+                        )
                     )
-                )
-                version_assets[version][asset]["sha256"] = sha256_file.read_text(
-                    encoding="utf-8"
-                ).strip()
+                    version_assets[version][triple][dist][
+                        "sha256"
+                    ] = sha256_file.read_text(encoding="utf-8").strip()
 
     output_bzl.write_text(TEMPLATE.format(json.dumps(version_assets, indent=4)))
     run_buildifier(output_bzl)
@@ -281,3 +431,51 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    sys.exit(0)
+
+
+class UnitTests(unittest.TestCase):
+    def test_triple_from_artifact(self) -> None:
+
+        self.assertEqual(
+            ("x86_64-unknown-linux-gnu", "ubuntu-20.04"),
+            triple_from_artifact("x86_64-linux-ubuntu-20.04"),
+        )
+
+        self.assertEqual(
+            ("x86_64-apple-darwin", "*"),
+            triple_from_artifact("x86_64-apple-darwin"),
+        )
+
+        self.assertEqual(
+            ("amd64-unknown-freebsd", "freebsd-12"),
+            triple_from_artifact("amd64-unknown-freebsd12"),
+        )
+
+        # https://en.wikipedia.org/wiki/IBM_AIX
+        self.assertEqual(
+            ("powerpc64-ibm-aix", "aix-7.2"),
+            triple_from_artifact("powerpc64-ibm-aix-7.2"),
+        )
+
+        # https://en.wikipedia.org/wiki/SUSE_Linux_Enterprise
+        self.assertEqual(
+            ("x86_64-unknown-linux-gnu", "sles-11.3"),
+            triple_from_artifact("x86_64-linux-sles11.3"),
+        )
+
+        self.assertEqual(
+            ("amd64-pc-solaris", "solaris-2.11"),
+            triple_from_artifact("amd64-pc-solaris2.11"),
+        )
+
+        self.assertEqual(
+            ("sparcv9-sun-solaris", "solaris-2.11"),
+            triple_from_artifact("sparcv9-sun-solaris2.11"),
+        )
+
+        self.assertEqual(
+            ("x86_64-unknown-linux-gnu", "ubuntu-16.04"),
+            triple_from_artifact("x86_64-linux-gnu-ubuntu-16.04"),
+        )
+        

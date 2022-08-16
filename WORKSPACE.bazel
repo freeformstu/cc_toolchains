@@ -4,6 +4,10 @@ load("//:repositories.bzl", "cc_toolchain_dependencies")
 
 cc_toolchain_dependencies()
 
+load("//:toolchains.bzl", "cc_register_toolchains")
+
+cc_register_toolchains()
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(

@@ -24,7 +24,9 @@ def triple(triple):
 
     component_parts = triple.split("-")
     if len(component_parts) < 3:
-        fail("Expected target triple to contain at least three sections separated by '-'")
+        fail("Expected target triple to contain at least three sections separated by '-'. Got {}".format(
+            triple
+        ))
 
     cpu_arch = component_parts[0]
     vendor = component_parts[1]

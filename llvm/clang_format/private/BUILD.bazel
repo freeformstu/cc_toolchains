@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load(":clang_format_utils.bzl", "bool_setting", "build_setting_file", "workspace_header")
 
@@ -56,4 +57,10 @@ filegroup(
         "**/*.bzl",
     ]),
     visibility = ["//:__subpackages__"],
+)
+
+bzl_library(
+    name = "bzl_lib",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//llvm/clang_format:__subpackages__"],
 )

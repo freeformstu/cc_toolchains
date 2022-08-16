@@ -90,3 +90,132 @@ alias(
     name = "fuchsia",
     actual = "@platforms//os:fuchsia",
 )
+
+################################################################################
+constraint_setting(name = "linux_flavor")
+
+constraint_value(
+    name = "ubuntu",
+    constraint_setting = ":linux_flavor",
+)
+
+constraint_value(
+    name = "rhel",
+    constraint_setting = ":linux_flavor",
+)
+
+alias(
+    name = "redhat",
+    actual = ":rhel",
+)
+
+alias(
+    name = "centos",
+    actual = ":rhel",
+)
+
+alias(
+    name = "fedora",
+    actual = ":rhel",
+)
+
+# https://en.wikipedia.org/wiki/SUSE_Linux_Enterprise
+constraint_value(
+    name = "sle",
+    constraint_setting = ":linux_flavor",
+)
+
+alias(
+    name = "sles",
+    actual = ":sle",
+)
+
+alias(
+    name = "sled",
+    actual = ":sle",
+)
+
+################################################################################
+constraint_setting(name = "ubuntu_version")
+
+[
+    constraint_value(
+        name = "ubuntu-{}".format(version),
+        constraint_setting = ":ubuntu_version",
+    )
+    for version in [
+        14,
+        16,
+        18,
+        20,
+    ]
+]
+
+################################################################################
+constraint_setting(name = "centos_version")
+
+[
+    constraint_value(
+        name = "centos-{}".format(version),
+        constraint_setting = ":centos_version",
+    )
+    for version in [
+        8,
+        9,
+    ]
+]
+
+################################################################################
+constraint_setting(name = "fedora_version")
+
+[
+    constraint_value(
+        name = "fedora-{}".format(version),
+        constraint_setting = ":fedora_version",
+    )
+    for version in [
+        35,
+        36,
+    ]
+]
+
+################################################################################
+constraint_setting(name = "rhel_version")
+
+[
+    constraint_value(
+        name = "redhat-{}".format(version),
+        constraint_setting = ":rhel_version",
+    )
+    for version in [
+        7,
+    ]
+]
+
+################################################################################
+constraint_setting(name = "freebsd_version")
+
+[
+    constraint_value(
+        name = "freebsd-{}".format(version),
+        constraint_setting = ":freebsd_version",
+    )
+    for version in [
+        11,
+        12,
+        13,
+    ]
+]
+
+################################################################################
+constraint_setting(name = "sle_version")
+
+[
+    constraint_value(
+        name = "sle-{}".format(version),
+        constraint_setting = ":sle_version",
+    )
+    for version in [
+        "12.4",
+    ]
+]

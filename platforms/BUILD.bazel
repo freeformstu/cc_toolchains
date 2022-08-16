@@ -9,3 +9,26 @@ load("//platforms:platforms.bzl", "SUPPORTED_TRIPLES")
     )
     for triple in SUPPORTED_TRIPLES
 ]
+
+[
+    platform(
+        name = "x86_64-unknown-linux-gnu-{}-{}".format(flavor, version),
+        constraint_values = triple_to_constraint_set("x86_64-unknown-linux-gnu") + [
+            "//constraints/os/linux:{}".format(flavor),
+            "//constraints/os/linux:{}_{}".format(flavor, version),
+        ],
+        visibility = ["//visibility:public"],
+    )
+    for flavor, versions in {
+        "centos": [
+            8,
+            9,
+        ],
+        "ubuntu": [
+            16,
+            18,
+            20,
+        ],
+    }.items()
+    for version in versions
+]

@@ -1,6 +1,7 @@
 """Utilities for defining constraint values"""
 
 load(":triple.bzl", "triple")
+load(":workspace.bzl", "WORKSPACE_NAME")
 
 # CPUs that map to a "@platforms//cpu entry
 _CPU_ARCH_TO_BUILTIN_PLAT_SUFFIX = {
@@ -52,9 +53,9 @@ def cpu_arch_to_constraints(cpu_arch):
     plat_suffix = _CPU_ARCH_TO_BUILTIN_PLAT_SUFFIX[cpu_arch]
 
     if not plat_suffix:
-        fail("CPU architecture \"{}\" is not supported by rules_rust".format(cpu_arch))
+        fail("CPU architecture \"{}\" is not supported".format(cpu_arch))
 
-    return ["//constraints/cpu:{}".format(plat_suffix)]
+    return ["@{}//constraints/cpu:{}".format(WORKSPACE_NAME, plat_suffix)]
 
 def vendor_to_constraints(_vendor):
     return []
@@ -63,9 +64,9 @@ def system_to_constraints(system):
     sys_suffix = _SYSTEM_TO_BUILTIN_SYS_SUFFIX[system]
 
     if not sys_suffix:
-        fail("System \"{}\" is not supported by rules_rust".format(sys_suffix))
+        fail("System \"{}\" is not supported".format(sys_suffix))
 
-    return ["//constraints/os:{}".format(sys_suffix)]
+    return ["@{}//constraints/os:{}".format(WORKSPACE_NAME, sys_suffix)]
 
 def abi_to_constraints(_abi):
     # TODO(acmcarther): Implement when C++ toolchain is more mature and we
@@ -96,13 +97,17 @@ def triple_to_constraint_set(target_triple):
     """Returns a set of constraints for a given platform triple
 
     Args:
-        target_triple (str): A platform triple. eg: `x86_64-unknown-linux-gnu`
+        target_triple (struct): A platform triple. eg: `x86_64-unknown-linux-gnu`
 
     Returns:
         list: A list of constraints (each represented by a list of strings)
     """
 
-    triple_struct = triple(target_triple)
+    # For legacy support, check for any strings and parse them
+    if type(target_triple) in ("str", "string"):
+        triple_struct = triple(target_triple)
+    else:
+        triple_struct = target_triple
 
     constraint_set = []
     constraint_set += cpu_arch_to_constraints(triple_struct.arch)
