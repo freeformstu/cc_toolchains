@@ -1,8 +1,8 @@
 """Utilities for fetching llvm toolchain artifacts"""
 
-load(":llvm_versions.bzl", "LLVM_VERSIONS")
 load("@bazel_skylib//lib:versions.bzl", "versions")
 load("//constraints:constraints.bzl", "triple_to_constraint_set")
+load(":llvm_versions.bzl", "LLVM_VERSIONS")
 
 def get_llvm_distro(target_triple, version):
     """_summary_
@@ -186,7 +186,7 @@ def generate_toolchain_config_build_content(name, tools_repo_name, exec_triple, 
         ),
         toolchain_identifier = "unknown",
         compiler = "clang",
-        target_libc = target_libc
+        target_libc = target_libc,
     )
 
 _LLVM_TOOLCHAIN_CONFIG_HEADER_TEMPLATE = """\

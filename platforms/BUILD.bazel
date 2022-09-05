@@ -25,9 +25,10 @@ load("//platforms:platforms.bzl", "SUPPORTED_TRIPLES")
             9,
         ],
         "ubuntu": [
-            16,
-            18,
-            20,
+            "xenial",  # 16
+            "bionic",  # 18
+            "focal",  # 20
+            "jammy",  # 22
         ],
     }.items()
     for version in versions

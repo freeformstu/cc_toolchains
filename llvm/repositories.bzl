@@ -2,10 +2,10 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//constraints:triple.bzl", "triple")
 load("//constraints:constraints.bzl", "triple_to_constraint_set")
-load("//llvm/private:repository_utils.bzl", "write_config_build_file", "write_tools_build_file", "write_workspace_file", "download_artifact")
+load("//constraints:triple.bzl", "triple")
 load("//llvm/private:llvm_versions.bzl", "LLVM_VERSIONS")
+load("//llvm/private:repository_utils.bzl", "download_artifact", "write_config_build_file", "write_tools_build_file", "write_workspace_file")
 
 def llvm_toolchain_dependencies():
     """Load dependencies required for llvm toolchains
@@ -42,18 +42,18 @@ llvm_toolchain_tools_repository = repository_rule(
     implementation = _llvm_toolchain_tools_repository,
     doc = "TODO",
     attrs = {
-        "version": attr.string(
-            doc = "",
+        "host": attr.string(
+            doc = "e.g. ubuntu-20",
             mandatory = True,
-            values = LLVM_VERSIONS.keys(),
         ),
         "target_triple": attr.string(
             doc = "",
             mandatory = True,
         ),
-        "host": attr.string(
-            doc = "e.g. ubuntu-20",
+        "version": attr.string(
+            doc = "",
             mandatory = True,
+            values = LLVM_VERSIONS.keys(),
         ),
     },
 )
@@ -72,23 +72,6 @@ llvm_toolchain_config_repository = repository_rule(
     implementation = _llvm_toolchain_config_repository,
     doc = "TODO",
     attrs = {
-        "tools_repo_name_template": attr.string(
-            doc = "",
-            mandatory = True,
-        ),
-        "version": attr.string(
-            doc = "",
-            mandatory = True,
-            values = LLVM_VERSIONS.keys(),
-        ),
-        "exec_triple": attr.string(
-            doc = "",
-            mandatory = True,
-        ),
-        "target_triple": attr.string(
-            doc = "",
-            mandatory = True,
-        ),
         "action_configs": attr.string_list(
             doc = "",
         ),
@@ -98,8 +81,25 @@ llvm_toolchain_config_repository = repository_rule(
         "cxx_builtin_include_directories": attr.string_list(
             doc = "",
         ),
+        "exec_triple": attr.string(
+            doc = "",
+            mandatory = True,
+        ),
         "make_variables": attr.string_list(
             doc = "",
+        ),
+        "target_triple": attr.string(
+            doc = "",
+            mandatory = True,
+        ),
+        "tools_repo_name_template": attr.string(
+            doc = "",
+            mandatory = True,
+        ),
+        "version": attr.string(
+            doc = "",
+            mandatory = True,
+            values = LLVM_VERSIONS.keys(),
         ),
     },
 )

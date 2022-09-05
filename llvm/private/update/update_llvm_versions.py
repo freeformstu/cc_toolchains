@@ -1,9 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.9
 
 import argparse
 import hashlib
 import json
 import logging
+import os
 import queue
 import re
 import shutil
@@ -12,10 +13,13 @@ import sys
 import tempfile
 import threading
 import time
-import unittest
 from pathlib import Path
 from typing import Dict, List, Tuple
 from urllib import parse, request
+from urllib.error import HTTPError
+
+from update_llvm.debian import query_debian_artifacts
+from update_llvm.types import Semver, VersionArtifacts
 
 # Threadding information
 ERROR_OCCURED = False
@@ -24,35 +28,17 @@ CV = threading.Condition()
 TIMEOUT = 600
 
 
-class Semver(str):
-    def __init__(self, value: str) -> None:
-        split = value.strip().split(".")
-        if len(split) != 3:
-            raise ValueError("Unexpected semver value: {}".format(value))
-
-        self.major: int = int(split[0])
-        self.minor: int = int(split[1])
-        self.patch: int = int(split[2])
-
-    def __repr__(self) -> str:
-        return "{}.{}.{}".format(self.major, self.minor, self.patch)
-
-    def __lt__(self, other):
-        return (self.major, self.minor, self.patch) < (
-            other.major,
-            other.minor,
-            other.patch,
-        )
-
-
+# All known releases of llvm
 LLVM_VERSIONS = sorted(
     [
-        # The commented-out versions do not have github releases
-        # Semver("6.0.0"),
-        # Semver("6.0.1"),
-        # Semver("7.0.0"),
-        # Semver("8.0.0"),
-        # Semver("9.0.0"),
+        Semver("3.9.1"),
+        Semver("4.0.0"),
+        Semver("5.0.2"),
+        Semver("6.0.0"),
+        Semver("6.0.1"),
+        Semver("7.0.0"),
+        Semver("8.0.0"),
+        Semver("9.0.0"),
         Semver("7.1.0"),
         Semver("8.0.1"),
         Semver("9.0.1"),
@@ -75,6 +61,25 @@ LLVM_VERSIONS = sorted(
     ]
 )
 
+MACOS_VERSIONS = [
+    Semver("10.0.0"),
+    Semver("10.0.1"),
+    Semver("11.0.0"),
+    Semver("11.0.1"),
+    Semver("11.1.0"),
+    Semver("12.0.0"),
+    Semver("12.0.1"),
+    Semver("13.0.0"),
+    Semver("13.0.1"),
+    Semver("14.0.0"),
+    Semver("14.0.1"),
+    Semver("14.0.2"),
+    Semver("14.0.3"),
+    Semver("14.0.4"),
+    Semver("14.0.5"),
+    Semver("14.0.6"),
+]
+
 TEMPLATE = """\
 # AUTO-GENERATED: DO NOT MODIFY
 # This file was updated by running the following command from the root of the repository:
@@ -86,10 +91,7 @@ TEMPLATE = """\
 LLVM_VERSIONS = {}
 """
 
-ARTIFACT_REGEX = r"^clang\+llvm.*\.tar\.xz$"
-
-Artifact = Dict[str, str]
-VersionArtifacts = Dict[str, Artifact]
+ARTIFACT_REGEX = r"^clang\+llvm.*\.(tar\.xz|zip)$"
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,6 +104,12 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging."
+    )
+    parser.add_argument(
+        "--output",
+        default=Path("llvm/private/llvm_versions.bzl"),
+        type=Path,
+        help="Path to the output file relative to the workspace root.",
     )
     parser.add_argument(
         "--numprocesses",
@@ -123,7 +131,7 @@ def triple_abi_assumption(triple: str) -> str:
 
     Returns:
         str: _description_
-    """    
+    """
 
     # I don't believe any of the release artifacts use a musl abi
     # for linux.
@@ -144,7 +152,7 @@ def distro_split(distribution: str) -> str:
 
     Returns:
         str: _description_
-    """    
+    """
     for i in range(1, len(distribution)):
         if distribution[-i].isalpha():
             dist = distribution[: -(i - 1)].strip("-")
@@ -192,7 +200,7 @@ def triple_from_artifact(artifact: str) -> Tuple[str, str]:
         # additional parts to it since the original split has a capped `maxsplit`
         if not split:
             split = abi.split("-", maxsplit=1)
-            
+
             # If there were no additional sections to `abi` then this should result
             # in the exact same value.
             abi = split.pop(0)
@@ -256,16 +264,39 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
     logging.debug("Artifact url: {}".format(url.geturl()))
 
     content = None
-    with request.urlopen(url=url.geturl()) as data:
-        content = data.read()
+    # Github has some pretty senstive rate limiting, attempt to retry in the event
+    # we detect we've been hit by the rate limiter.
+    retries = 0
+    while retries < 5:
+        try:
+            with request.urlopen(url=url.geturl()) as data:
+                content = data.read()
 
-    # Protect against rate limiting from the Github API
-    time.sleep(1)
+            if not content:
+                raise RuntimeError("Failed to download: {}".format(url))
 
-    if not content:
-        raise RuntimeError("Failed to download: {}".format(url))
-
-    data = json.loads(content)
+            data = json.loads(content)
+            # Protect against rate limiting from the Github API
+            time.sleep(5)
+            break
+        except HTTPError as exc:
+            if (
+                exc.getcode() == 429
+                or exc.getcode() == 403
+                and "rate limit exceeded" in str(exc)
+            ):
+                retries += 1
+                sleep_time = 30 * retries
+                logging.debug(
+                    "Rate limit exceeded, trying again in %d seconds", sleep_time
+                )
+                time.sleep(sleep_time)
+                continue
+            # Ignore versions that do not have github releases
+            if exc.getcode() != 404:
+                raise
+            data = {"assets": []}
+            break
 
     prefix_len = len("clang+llvm-{}-".format(version))
     suffix_len = len(".tar.xz")
@@ -277,19 +308,26 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
         (
             triple_from_artifact(asset["name"][prefix_len:-suffix_len]),
             {
-                "url": parse.unquote(asset["browser_download_url"]),
-                "sha256": None,
+                # Create a mapping of urls to sha256 vaues of their content
+                "urls": {parse.unquote(asset["browser_download_url"]): None},
             },
         )
         for asset in data["assets"]
         if re.match(ARTIFACT_REGEX, asset["name"])
         and not asset["name"][prefix_len:].startswith("rc")
+        and not "ubuntu" in asset["name"][prefix_len:]
     ]
+
+    # Add linux artifacts
+    artifacts.extend(query_debian_artifacts(version))
 
     # Combine all artifacts to match the following format
     # "triple": {
     #     "distribution": {
-    #         "url": "..."
+    #         "urls": {
+    #             "https://url": "sha256",
+    #             # ...
+    #         },
     #         # ...
     #     }
     # }
@@ -370,19 +408,7 @@ def queue_join() -> bool:
     return time.time() < stop
 
 
-def main() -> None:
-    """The script's main entrypoint"""
-
-    args = parse_args()
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    output_bzl = Path(__file__).parent / "llvm_versions.bzl"
-
-    version_assets = {version: query_artifacts(version) for version in LLVM_VERSIONS}
-
+def generate_sha256_values(version_assets, numprocesses: int) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         logging.debug("temp directory: {}".format(tmp_dir))
         tmp_path = Path(tmp_dir)
@@ -390,10 +416,14 @@ def main() -> None:
         for triple_assets in version_assets.values():
             for triple in triple_assets:
                 for data in triple_assets[triple].values():
-                    QUEUE.put((tmp_path, parse.urlparse(data["url"])))
+                    for url in data["urls"]:
+                        # Skip if a sha256 value is present
+                        if data["urls"][url]:
+                            continue
+                    QUEUE.put((tmp_path, parse.urlparse(url)))
 
         threads = []
-        for i in range(args.numprocesses):
+        for i in range(numprocesses):
             threads.append(
                 threading.Thread(
                     name="worker-{}".format(i), target=worker_main, daemon=True
@@ -412,18 +442,44 @@ def main() -> None:
         for version in version_assets:
             for triple in version_assets[version]:
                 for dist in version_assets[version][triple]:
-                    sha256_file = tmp_path / sha256_file_path(
-                        Path(
-                            parse.urlparse(
-                                version_assets[version][triple][dist]["url"]
-                            ).path.lstrip("/")
+                    for url in version_assets[version][triple][dist]["urls"]:
+                        sha256_file = tmp_path / sha256_file_path(
+                            Path(parse.urlparse(url).path.lstrip("/"))
                         )
-                    )
-                    version_assets[version][triple][dist][
-                        "sha256"
-                    ] = sha256_file.read_text(encoding="utf-8").strip()
+                        version_assets[version][triple][dist]["urls"][
+                            url
+                        ] = sha256_file.read_text(encoding="utf-8").strip()
 
-    output_bzl.write_text(TEMPLATE.format(json.dumps(version_assets, indent=4)))
+    return version_assets
+
+
+def _find_workspace_root() -> Path:
+    root = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+    if root:
+        return Path(root)
+
+    return Path(__file__).parent.parent.parent.parent
+
+
+def main() -> None:
+    """The script's main entrypoint"""
+
+    args = parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    output_bzl = _find_workspace_root() / args.output
+
+    version_assets = {version: query_artifacts(version) for version in LLVM_VERSIONS}
+    complete_version_assets = generate_sha256_values(
+        version_assets=version_assets, numprocesses=args.numprocesses
+    )
+
+    output_bzl.write_text(
+        TEMPLATE.format(json.dumps(complete_version_assets, indent=4))
+    )
     run_buildifier(output_bzl)
 
     logging.info("Done")
@@ -432,50 +488,3 @@ def main() -> None:
 if __name__ == "__main__":
     main()
     sys.exit(0)
-
-
-class UnitTests(unittest.TestCase):
-    def test_triple_from_artifact(self) -> None:
-
-        self.assertEqual(
-            ("x86_64-unknown-linux-gnu", "ubuntu-20.04"),
-            triple_from_artifact("x86_64-linux-ubuntu-20.04"),
-        )
-
-        self.assertEqual(
-            ("x86_64-apple-darwin", "*"),
-            triple_from_artifact("x86_64-apple-darwin"),
-        )
-
-        self.assertEqual(
-            ("amd64-unknown-freebsd", "freebsd-12"),
-            triple_from_artifact("amd64-unknown-freebsd12"),
-        )
-
-        # https://en.wikipedia.org/wiki/IBM_AIX
-        self.assertEqual(
-            ("powerpc64-ibm-aix", "aix-7.2"),
-            triple_from_artifact("powerpc64-ibm-aix-7.2"),
-        )
-
-        # https://en.wikipedia.org/wiki/SUSE_Linux_Enterprise
-        self.assertEqual(
-            ("x86_64-unknown-linux-gnu", "sles-11.3"),
-            triple_from_artifact("x86_64-linux-sles11.3"),
-        )
-
-        self.assertEqual(
-            ("amd64-pc-solaris", "solaris-2.11"),
-            triple_from_artifact("amd64-pc-solaris2.11"),
-        )
-
-        self.assertEqual(
-            ("sparcv9-sun-solaris", "solaris-2.11"),
-            triple_from_artifact("sparcv9-sun-solaris2.11"),
-        )
-
-        self.assertEqual(
-            ("x86_64-unknown-linux-gnu", "ubuntu-16.04"),
-            triple_from_artifact("x86_64-linux-gnu-ubuntu-16.04"),
-        )
-        

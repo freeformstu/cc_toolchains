@@ -8,6 +8,8 @@ load("//:toolchains.bzl", "cc_register_toolchains")
 
 cc_register_toolchains()
 
+###############################################################################
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -20,6 +22,19 @@ http_archive(
 )
 
 http_archive(
+    name = "rules_cc",
+    urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.2/rules_cc-0.0.2.tar.gz"],
+    sha256 = "58bff40957ace85c2de21ebfc72e53ed3a0d33af8cc20abd0ceec55c63be7de2",
+)
+
+http_archive(
+    name = "rules_python",
+    sha256 = "b593d13bb43c94ce94b483c2858e53a9b811f6f10e1e0eedc61073bd90e58d9c",
+    strip_prefix = "rules_python-0.12.0",
+    url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.12.0.tar.gz",
+)
+
+http_archive(
     name = "io_bazel_stardoc",
     sha256 = "aa814dae0ac400bbab2e8881f9915c6f47c49664bf087c409a15f90438d2c23e",
     urls = [
@@ -27,6 +42,8 @@ http_archive(
         "https://github.com/bazelbuild/stardoc/releases/download/0.5.1/stardoc-0.5.1.tar.gz",
     ],
 )
+
+###############################################################################
 
 load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
 
@@ -37,6 +54,13 @@ rust_register_toolchains()
 load("@rules_rust//tools/rust_analyzer:deps.bzl", "rust_analyzer_deps")
 
 rust_analyzer_deps()
+
+load("@rules_python//python:repositories.bzl", "python_register_toolchains")
+
+python_register_toolchains(
+    name = "python3_9",
+    python_version = "3.9",
+)
 
 load("@io_bazel_stardoc//:setup.bzl", "stardoc_repositories")
 

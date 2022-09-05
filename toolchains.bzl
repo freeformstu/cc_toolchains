@@ -1,9 +1,9 @@
 """Common toolchain definitions"""
 
-load("//llvm:toolchains.bzl", "llvm_register_toolchains", LLVM_DEFAULT_EXEC_TRIPLES = "DEFAULT_EXEC_TRIPLES")
-load("//gcc:toolchains.bzl", "gcc_register_toolchains")
-load("//msvc:toolchains.bzl", "msvc_register_toolchains")
 load("//constraints:triple.bzl", "triple")
+load("//gcc:toolchains.bzl", "gcc_register_toolchains")
+load("//llvm:toolchains.bzl", "llvm_register_toolchains", LLVM_DEFAULT_EXEC_TRIPLES = "DEFAULT_EXEC_TRIPLES")
+load("//msvc:toolchains.bzl", "msvc_register_toolchains")
 
 DEFAULT_TOOLCHAINS = ["llvm-latest-{}".format(t) for t in LLVM_DEFAULT_EXEC_TRIPLES]
 

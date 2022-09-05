@@ -1,7 +1,6 @@
 """Low Level Virtual Machine (LLVM) toolchain definitions"""
 
 load("//llvm:repositories.bzl", "llvm_toolchain_set_repository")
-load("//platforms:platforms.bzl", "HOST_TOOL_TRIPLES", "SUPPORTED_TRIPLES")
 load("//llvm/private:repository_utils.bzl", "get_latest_version")
 
 DEFAULT_EXEC_TRIPLES = [

@@ -138,17 +138,38 @@ alias(
 ################################################################################
 constraint_setting(name = "ubuntu_version")
 
+UBUNTU_VERSIONS = {
+    14: "trusty",
+    16: "xenial",
+    18: "bionic",
+    20: "focal",
+    22: "jammy",
+}
+
 [
     constraint_value(
-        name = "ubuntu-{}".format(version),
+        name = "ubuntu-{}".format(flavor),
         constraint_setting = ":ubuntu_version",
     )
-    for version in [
-        14,
-        16,
-        18,
-        20,
-    ]
+    for flavor in UBUNTU_VERSIONS.values()
+]
+
+# Version aliases
+[
+    alias(
+        name = "ubuntu-{}".format(number),
+        actual = "ubuntu-{}".format(flavor),
+    )
+    for number, flavor in UBUNTU_VERSIONS.items()
+]
+
+# LTS releases. 14-22 all share a `*.04` version.
+[
+    alias(
+        name = "ubuntu-{}.04".format(number),
+        actual = "ubuntu-{}".format(name),
+    )
+    for number, name in UBUNTU_VERSIONS.items()
 ]
 
 ################################################################################

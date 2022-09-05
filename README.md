@@ -39,6 +39,7 @@ http://mirrors.vcea.wsu.edu/centos/8-stream/AppStream/x86_64/os/Packages/clang-1
 
 ### Ubuntu
 https://apt.llvm.org/
+https://apt.llvm.org/bionic/pool/main/l/llvm-toolchain-14/
 apt.llvm.org/focal/pool/main/l/llvm-toolchain-15/clang-15_15.0.0~++20220805083048+e4ec381f2cf5-1~exp1~20220805083138.10_amd64.deb
 
 ### Windows
