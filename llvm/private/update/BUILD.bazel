@@ -6,6 +6,25 @@ py_binary(
     imports = ["."],
 )
 
+# Common test source files
+TEST_SRCS = glob(
+    include = [
+        "tests/**/*.py",
+    ],
+    exclude = [
+        "tests/**/*_test.py",
+    ],
+)
+
+[
+    py_test(
+        name = src[:-len(".py")],
+        srcs = [src] + TEST_SRCS,
+        deps = [":update_llvm_versions"],
+    )
+    for src in glob(["tests/**/*_test.py"])
+]
+
 alias(
     name = "update",
     actual = ":update_llvm_versions",

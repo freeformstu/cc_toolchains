@@ -58,27 +58,9 @@ LLVM_VERSIONS = sorted(
         Semver("14.0.4"),
         Semver("14.0.5"),
         Semver("14.0.6"),
+        Semver("15.0.0"),
     ]
 )
-
-MACOS_VERSIONS = [
-    Semver("10.0.0"),
-    Semver("10.0.1"),
-    Semver("11.0.0"),
-    Semver("11.0.1"),
-    Semver("11.1.0"),
-    Semver("12.0.0"),
-    Semver("12.0.1"),
-    Semver("13.0.0"),
-    Semver("13.0.1"),
-    Semver("14.0.0"),
-    Semver("14.0.1"),
-    Semver("14.0.2"),
-    Semver("14.0.3"),
-    Semver("14.0.4"),
-    Semver("14.0.5"),
-    Semver("14.0.6"),
-]
 
 TEMPLATE = """\
 # AUTO-GENERATED: DO NOT MODIFY
@@ -269,6 +251,10 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
     retries = 0
     while retries < 5:
         try:
+            data = {"assets": []}
+            break
+            # Protect against rate limiting from the Github API
+            time.sleep(5)
             with request.urlopen(url=url.geturl()) as data:
                 content = data.read()
 
@@ -276,8 +262,6 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
                 raise RuntimeError("Failed to download: {}".format(url))
 
             data = json.loads(content)
-            # Protect against rate limiting from the Github API
-            time.sleep(5)
             break
         except HTTPError as exc:
             if (
@@ -318,8 +302,11 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
         and not "ubuntu" in asset["name"][prefix_len:]
     ]
 
+    from pprint import pprint
+
     # Add linux artifacts
-    artifacts.extend(query_debian_artifacts(version))
+    debian_artifacts = query_debian_artifacts(version)
+    artifacts.extend(debian_artifacts)
 
     # Combine all artifacts to match the following format
     # "triple": {
@@ -420,7 +407,11 @@ def generate_sha256_values(version_assets, numprocesses: int) -> None:
                         # Skip if a sha256 value is present
                         if data["urls"][url]:
                             continue
-                    QUEUE.put((tmp_path, parse.urlparse(url)))
+                        QUEUE.put((tmp_path, parse.urlparse(url)))
+
+        # Do nothing if the task queue is empty
+        if QUEUE.empty():
+            return
 
         threads = []
         for i in range(numprocesses):

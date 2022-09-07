@@ -2,13 +2,11 @@
 
 import logging
 import re
+import os
 from typing import List, TypeVar
-from urllib import parse, request
-from urllib.error import HTTPError
+from urllib import parse, request, error
 
 from .types import Semver, VersionArtifacts
-
-LINUX_UBUNTU_PACKAGE_ROOT = "https://apt.llvm.org"
 
 
 AnyAptPackage = TypeVar("AnyAptPackage", bound="AptPackage")
@@ -25,7 +23,7 @@ class AptPackage:
         self.depends = {}
         self.recommends = None
         self.suggests = None
-        self.Provides = []
+        self.provides = []
         self.homepage = None
         self.priority = None
         self.section = None
@@ -34,6 +32,9 @@ class AptPackage:
         self.sha256 = None
         self.sha1 = None
         self.md5sum = None
+
+        if not text:
+            raise ValueError("AptPackage cannot parse an empty string")
 
         def parse_value(text):
             return text.split(" ", 1)[-1].strip()
@@ -54,8 +55,10 @@ class AptPackage:
             elif line.startswith("Depends:"):
                 depends = parse_value(line).split(",")
                 for dep in depends:
-                    name, version = dep.split(" ", 1)
-                    self.depends.update({name: version.strip("()")})
+                    split = dep.split(" ", 1)
+                    self.depends.update(
+                        {split[0]: split[1].strip("()") if len(split) >= 2 else None}
+                    )
             elif line.startswith("Recommends:"):
                 self.recommends = parse_value(line)
             elif line.startswith("Suggests:"):
@@ -79,12 +82,43 @@ class AptPackage:
             elif line.startswith("MD5sum:"):
                 self.md5sum = parse_value(line)
 
+    def __repr__(self) -> str:
+        return "\n".join(
+            [
+                "Package: {}".format(self.package),
+                "Source: {}".format(self.source),
+                "Version: {}".format(self.version),
+                "Architecture: {}".format(self.architecture),
+                "Maintainer: {}".format(self.maintainer),
+                "Installed-Size: {}".format(self.installed_size),
+                "Depends: {}".format(
+                    " ".join(
+                        "{} {}".format(key, val) for key, val in self.depends.items()
+                    )
+                ),
+                "Recommends: {}".format(self.recommends),
+                "Suggests: {}".format(self.suggests),
+                "Provides: {}".format(" ".join(self.provides)),
+                "Homepage: {}".format(self.homepage),
+                "Priority: {}".format(self.priority),
+                "Section: {}".format(self.section),
+                "Filename: {}".format(self.filename),
+                "Size: {}".format(self.size),
+                "SHA256: {}".format(self.sha256),
+                "SHA1: {}".format(self.sha1),
+                "MD5sum: {}".format(self.md5sum),
+            ]
+        )
+
     @classmethod
     def parse_packages_file_content(cls, text: str) -> List[AnyAptPackage]:
 
         entries = text.split("\n\n")
 
-        return [cls(entry) for entry in entries]
+        return [cls(entry) for entry in entries if entry]
+
+
+LINUX_UBUNTU_PACKAGE_ROOT = "https://apt.llvm.org"
 
 
 LINUX_UBUNTU_LOCATIONS = {
@@ -162,7 +196,7 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
         try:
             with request.urlopen(url=url.geturl()) as data:
                 content = data.read().decode("utf-8")
-        except HTTPError as exc:
+        except error.HTTPError as exc:
             # Ignore versions that do not have github releases
             if exc.getcode() == 404:
                 continue
@@ -173,6 +207,7 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
         # Parse all `main/binary-*/Release` files
         package_paths = {}
         found_sha256 = False
+        release_location = url.geturl()[: -len("/Release")]
         for line in content.splitlines():
             if line.startswith("SHA256:"):
                 found_sha256 = True
@@ -181,16 +216,14 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
                 if not line or not line.startswith((" ", "\t")):
                     break
                 match = re.match(
-                    r"[a-z\d]+ \d+ (\w+\/binary-([a-z\d]*)\/Packages)$", line
+                    r"[a-z\d]+ \d+ (\w+\/binary-([a-z\d]*)\/Packages)$", line.strip()
                 )
                 if match:
                     package_paths.update(
                         {
-                            match.group(2): parse.urlparse(
-                                "{}/{}".format(
-                                    url.geturl(),
-                                    match.group(1),
-                                )
+                            match.group(2): "{}/{}".format(
+                                release_location,
+                                match.group(1),
                             )
                         }
                     )
@@ -198,7 +231,7 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
         for arch, package_url in package_paths.items():
             # Download Release file
             packages = {}
-            with request.urlopen(url=package_url.geturl()) as data:
+            with request.urlopen(url=package_url) as data:
                 content = data.read().decode("utf-8")
                 pkgs = AptPackage.parse_packages_file_content(content)
                 packages = {pkg.package: pkg for pkg in pkgs}
@@ -206,20 +239,28 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
             toolchain_packages = {}
             for pkg in packages:
                 if re.match(_DEBIAN_TOOLCHAIN_COMPONENT_PKG_PATTERN, pkg):
-                    toolchain_packages.update({pkg.url: pkg.sha256})
-                    for dep in pkg.depends:
+                    current_pkg = packages[pkg]
+                    toolchain_packages.update(
+                        {
+                            "{}/{}".format(
+                                LINUX_UBUNTU_PACKAGE_ROOT, current_pkg.filename
+                            ): current_pkg.sha256
+                        }
+                    )
+                    for dep in current_pkg.depends:
                         if dep in packages:
                             dep_pkg = packages[dep]
                             toolchain_packages.update({dep_pkg.url: dep_pkg.sha256})
 
-            artifacts.append(
-                (
+            if toolchain_packages:
+                artifacts.append(
                     (
-                        "{}-unknown-linux-gnu".format(_DEBIAN_ARCH_MAPPINGS[arch]),
-                        "ubuntu-{}".format(flavor),
-                    ),
-                    {"urls": toolchain_packages},
+                        (
+                            "{}-unknown-linux-gnu".format(_DEBIAN_ARCH_MAPPINGS[arch]),
+                            "ubuntu-{}".format(flavor),
+                        ),
+                        {"urls": toolchain_packages},
+                    )
                 )
-            )
 
     return artifacts
