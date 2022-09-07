@@ -18,6 +18,11 @@ class UnitTests(unittest.TestCase):
         )
 
         self.assertEqual(
+            ("arm64-apple-darwin21.0", "*"),
+            triple_from_artifact("aarch64-apple-darwin"),
+        )
+
+        self.assertEqual(
             ("amd64-unknown-freebsd", "freebsd-12"),
             triple_from_artifact("amd64-unknown-freebsd12"),
         )

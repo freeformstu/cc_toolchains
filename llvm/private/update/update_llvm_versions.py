@@ -251,8 +251,6 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
     retries = 0
     while retries < 5:
         try:
-            data = {"assets": []}
-            break
             # Protect against rate limiting from the Github API
             time.sleep(5)
             with request.urlopen(url=url.geturl()) as data:
@@ -302,11 +300,8 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
         and not "ubuntu" in asset["name"][prefix_len:]
     ]
 
-    from pprint import pprint
-
     # Add linux artifacts
-    debian_artifacts = query_debian_artifacts(version)
-    artifacts.extend(debian_artifacts)
+    artifacts.extend(query_debian_artifacts(version))
 
     # Combine all artifacts to match the following format
     # "triple": {
@@ -434,6 +429,9 @@ def generate_sha256_values(version_assets, numprocesses: int) -> None:
             for triple in version_assets[version]:
                 for dist in version_assets[version][triple]:
                     for url in version_assets[version][triple][dist]["urls"]:
+                        # Skip anything that already has a sha256 value
+                        if version_assets[version][triple][dist]["urls"][url]:
+                            continue
                         sha256_file = tmp_path / sha256_file_path(
                             Path(parse.urlparse(url).path.lstrip("/"))
                         )
