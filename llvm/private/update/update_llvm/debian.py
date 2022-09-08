@@ -242,15 +242,22 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
                     current_pkg = packages[pkg]
                     toolchain_packages.update(
                         {
-                            "{}/{}".format(
-                                LINUX_UBUNTU_PACKAGE_ROOT, current_pkg.filename
-                            ): current_pkg.sha256
+                            "{}/{}/{}".format(
+                                LINUX_UBUNTU_PACKAGE_ROOT, flavor, current_pkg.filename
+                            ): {"sha256": current_pkg.sha256, "strip_prefix": "usr"}
                         }
                     )
                     for dep in current_pkg.depends:
                         if dep in packages:
                             dep_pkg = packages[dep]
-                            toolchain_packages.update({dep_pkg.url: dep_pkg.sha256})
+                            toolchain_packages.update(
+                                {
+                                    dep_pkg.url: {
+                                        "sha256": dep_pkg.sha256,
+                                        "strip_prefix": "usr",
+                                    }
+                                }
+                            )
 
             if toolchain_packages:
                 artifacts.append(
@@ -259,7 +266,7 @@ def query_debian_artifacts(version: Semver) -> VersionArtifacts:
                             "{}-unknown-linux-gnu".format(_DEBIAN_ARCH_MAPPINGS[arch]),
                             "ubuntu-{}".format(flavor),
                         ),
-                        {"urls": toolchain_packages},
+                        toolchain_packages,
                     )
                 )
 

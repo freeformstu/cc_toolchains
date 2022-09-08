@@ -289,10 +289,8 @@ def query_artifacts(version: Semver) -> VersionArtifacts:
     artifacts: List[Tuple[str, str], Dict[str, str]] = [
         (
             triple_from_artifact(asset["name"][prefix_len:-suffix_len]),
-            {
-                # Create a mapping of urls to sha256 vaues of their content
-                "urls": {parse.unquote(asset["browser_download_url"]): None},
-            },
+            # Create a mapping of urls to sha256 vaues of their content
+            {parse.unquote(asset["browser_download_url"]): {"sha256": None}},
         )
         for asset in data["assets"]
         if re.match(ARTIFACT_REGEX, asset["name"])
@@ -398,9 +396,9 @@ def generate_sha256_values(version_assets, numprocesses: int) -> None:
         for triple_assets in version_assets.values():
             for triple in triple_assets:
                 for data in triple_assets[triple].values():
-                    for url in data["urls"]:
+                    for url in data:
                         # Skip if a sha256 value is present
-                        if data["urls"][url]:
+                        if data[url]["sha256"]:
                             continue
                         QUEUE.put((tmp_path, parse.urlparse(url)))
 
@@ -428,15 +426,15 @@ def generate_sha256_values(version_assets, numprocesses: int) -> None:
         for version in version_assets:
             for triple in version_assets[version]:
                 for dist in version_assets[version][triple]:
-                    for url in version_assets[version][triple][dist]["urls"]:
+                    for url in version_assets[version][triple][dist]:
                         # Skip anything that already has a sha256 value
-                        if version_assets[version][triple][dist]["urls"][url]:
+                        if version_assets[version][triple][dist][url]["sha256"]:
                             continue
                         sha256_file = tmp_path / sha256_file_path(
                             Path(parse.urlparse(url).path.lstrip("/"))
                         )
-                        version_assets[version][triple][dist]["urls"][
-                            url
+                        version_assets[version][triple][dist][url][
+                            "sha256"
                         ] = sha256_file.read_text(encoding="utf-8").strip()
 
     return version_assets
